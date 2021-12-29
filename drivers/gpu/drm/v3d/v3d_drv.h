@@ -13,6 +13,12 @@
 
 #include "uapi/drm/v3d_drm.h"
 
+#include <soc/bcm2835/raspberrypi-firmware.h>
+
+
+// void v3d_log_hexdump(const void* ptr, size_t size);
+// void v3d_log_print(const char* fmt, ...);
+
 struct clk;
 struct platform_device;
 struct reset_control;
@@ -173,17 +179,35 @@ to_v3d_fence(struct dma_fence *fence)
 	return (struct v3d_fence *)fence;
 }
 
-#define V3D_READ(offset) readl(v3d->hub_regs + offset)
-#define V3D_WRITE(offset, val) writel(val, v3d->hub_regs + offset)
 
-#define V3D_BRIDGE_READ(offset) readl(v3d->bridge_regs + offset)
-#define V3D_BRIDGE_WRITE(offset, val) writel(val, v3d->bridge_regs + offset)
+static inline u32 v3d_readl_wrapper(void* addr, const char* name, const char* file, int line)
+{
+	v3d_log_print("V3D_READ() : %s(0x%016llX) in %s:%d\n", name, (u64)addr, file, line);
 
-#define V3D_GCA_READ(offset) readl(v3d->gca_regs + offset)
-#define V3D_GCA_WRITE(offset, val) writel(val, v3d->gca_regs + offset)
+	printk("v3d-test: V3D_READ() : %s(0x%016llX) in %s:%d", name, (u64)addr, file, line);
+	return readl(addr);
+}
 
-#define V3D_CORE_READ(core, offset) readl(v3d->core_regs[core] + offset)
-#define V3D_CORE_WRITE(core, offset, val) writel(val, v3d->core_regs[core] + offset)
+static inline void v3d_writel_wrapper(u32 val, void* addr, const char* name, const char* file, int line)
+{
+	v3d_log_print("V3D_WRITE(0x%X) : %s(0x%016llX) in %s:%d", val, name, (u64)addr, file, line);
+
+	printk("v3d-test: V3D_WRITE(0x%X) : %s(0x%016llX) in %s:%d", val, name, (u64)addr, file, line);
+	writel(val, addr);
+}
+
+// #define V3D_READ(offset) readl(v3d->hub_regs + offset)
+#define V3D_READ(offset) v3d_readl_wrapper(v3d->hub_regs + offset, #offset, __FILE__, __LINE__)
+#define V3D_WRITE(offset, val) v3d_writel_wrapper(val, v3d->hub_regs + offset, #offset, __FILE__, __LINE__)
+
+#define V3D_BRIDGE_READ(offset) v3d_readl_wrapper(v3d->bridge_regs + offset, #offset, __FILE__, __LINE__)
+#define V3D_BRIDGE_WRITE(offset, val) v3d_writel_wrapper(val, v3d->bridge_regs + offset, #offset, __FILE__, __LINE__)
+
+#define V3D_GCA_READ(offset) v3d_readl_wrapper(v3d->gca_regs + offset, #offset, __FILE__, __LINE__)
+#define V3D_GCA_WRITE(offset, val) v3d_writel_wrapper(val, v3d->gca_regs + offset, #offset, __FILE__, __LINE__)
+
+#define V3D_CORE_READ(core, offset) v3d_readl_wrapper(v3d->core_regs[core] + offset, #offset, __FILE__, __LINE__)
+#define V3D_CORE_WRITE(core, offset, val) v3d_writel_wrapper(val, v3d->core_regs[core] + offset, #offset, __FILE__, __LINE__)
 
 struct v3d_job {
 	struct drm_sched_job base;

@@ -162,6 +162,13 @@ enum rpi_firmware_property_tag {
 
 #define GET_DISPLAY_SETTINGS_PAYLOAD_SIZE 64
 
+
+void v3d_log_hexdump(const void* ptr, size_t size);
+void v3d_log_print(const char* fmt, ...);
+
+extern char g_v3d_log_buff[0x10000];
+extern int g_v3d_log_buff_size;
+
 #if IS_ENABLED(CONFIG_RASPBERRYPI_FIRMWARE)
 int rpi_firmware_property(struct rpi_firmware *fw,
 			  u32 tag, void *data, size_t len);

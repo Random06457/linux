@@ -11,6 +11,8 @@
 #include "v3d_drv.h"
 #include "v3d_regs.h"
 
+#include <soc/bcm2835/raspberrypi-firmware.h>
+
 #define REGDEF(reg) { reg, #reg }
 struct v3d_reg_def {
 	u32 reg;
@@ -237,7 +239,26 @@ static int v3d_measure_clock(struct seq_file *m, void *unused)
 	return 0;
 }
 
+
+
+static int v3d_test(struct seq_file *m, void *unused)
+{
+	struct drm_info_node *node = (struct drm_info_node *)m->private;
+	struct drm_device *dev = node->minor->dev;
+	struct v3d_dev *v3d = to_v3d_dev(dev);
+
+	seq_printf(m, "Core 0 base: 0x%016llX\n", (u64)v3d->core_regs[0]);
+	seq_printf(m, "Core 1 base: 0x%016llX\n", (u64)v3d->core_regs[1]);
+	seq_printf(m, "Core 2 base: 0x%016llX\n", (u64)v3d->core_regs[2]);
+	seq_printf(m, "Hub base: 0x%016llX\n", (u64)v3d->hub_regs);
+
+	seq_printf(m, "log:\n%s", g_v3d_log_buff);
+
+	return 0;
+}
+
 static const struct drm_info_list v3d_debugfs_list[] = {
+	{"v3d_test", v3d_test, 0},
 	{"v3d_ident", v3d_v3d_debugfs_ident, 0},
 	{"v3d_regs", v3d_v3d_debugfs_regs, 0},
 	{"measure_clock", v3d_measure_clock, 0},
