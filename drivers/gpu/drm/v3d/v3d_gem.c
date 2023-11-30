@@ -311,6 +311,32 @@ v3d_lock_bo_reservations(struct v3d_job *job,
 	return 0;
 }
 
+
+#define DUMP_LINE	40
+static void v3d_dump_bo(u32 start, u32 end, struct drm_gem_object* gbo)
+{
+	u32 i, j;
+	u32 size = end - start;
+	u8* ptr;
+
+	if (!gbo)
+		return;
+
+	ptr = drm_gem_shmem_vmap(gbo);
+
+	for (i  = 0; i < size;)
+	{
+		char buff[DUMP_LINE * 3 +1] = {0};
+		for (j = 0; j < DUMP_LINE && i < size; j++, i++)
+		{
+			snprintf(buff + j*3, sizeof(buff), "%02X ", ptr[i]);
+		}
+		printk("%s", buff);
+	}
+
+	drm_gem_shmem_vunmap(gbo, ptr);
+}
+
 /**
  * v3d_lookup_bos() - Sets up job->bo[] with the GEM objects
  * referenced by the job.
@@ -382,6 +408,17 @@ v3d_lookup_bos(struct drm_device *dev,
 		}
 		drm_gem_object_get(bo);
 		job->bo[i] = bo;
+
+		{
+			struct v3d_bo* vbo = to_v3d_bo(bo);
+			u32 bo_start = vbo->node.start << PAGE_SHIFT;
+			u32 bo_size = bo->size;
+			u32 bo_end = bo_start + bo->size;
+
+			printk("BO %08X-%08X(0x%X)", bo_start, bo_end, bo_size);
+			if (bo_size <= 0x1000)
+				v3d_dump_bo(bo_start, bo_end, bo);
+		}
 	}
 	spin_unlock(&file_priv->table_lock);
 
@@ -547,6 +584,23 @@ v3d_attach_fences_and_unlock_reservation(struct drm_file *file_priv,
 	}
 }
 
+struct drm_gem_object* v3d_find_cl_bo(struct v3d_job* job, u32 start)
+{
+	size_t i;
+	for (i = 0; i < job->bo_count; i++)
+	{
+		struct drm_gem_object* gbo = job->bo[i];
+		struct v3d_bo* vbo = to_v3d_bo(gbo);
+		u32 bo_start = vbo->node.start << PAGE_SHIFT;
+		u32 bo_size = gbo->size;
+		u32 bo_end = bo_start + bo_size;
+
+		if (start >= bo_start && start < bo_end)
+			return gbo;
+	}
+	return NULL;
+}
+
 /**
  * v3d_submit_cl_ioctl() - Submits a job (frame) to the V3D.
  * @dev: DRM device
@@ -642,6 +696,24 @@ v3d_submit_cl_ioctl(struct drm_device *dev, void *data,
 			     args->bo_handles, args->bo_handle_count);
 	if (ret)
 		goto fail;
+
+
+	{
+		struct drm_gem_object* gbo;
+		u32 rcl_size = args->rcl_end - args->rcl_start;
+		u32 bcl_size = args->bcl_end - args->bcl_start;
+		printk("v3d-submit: bcl=0x%08x(0x%08x) rcl=0x%08x(0x%08x)", args->bcl_start, bcl_size, args->rcl_start, rcl_size);
+
+		gbo = v3d_find_cl_bo(last_job, args->bcl_start);
+		printk("BCL:");
+		if (gbo)
+			v3d_dump_bo(args->bcl_start, args->bcl_end, gbo);
+
+		gbo = v3d_find_cl_bo(last_job, args->rcl_start);
+		printk("RCL:");
+		if (gbo)
+			v3d_dump_bo(args->rcl_start, args->rcl_end, gbo);
+	}
 
 	ret = v3d_lock_bo_reservations(last_job, &acquire_ctx);
 	if (ret)

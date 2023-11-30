@@ -182,10 +182,12 @@ to_v3d_fence(struct dma_fence *fence)
 
 static inline u32 v3d_readl_wrapper(void* addr, const char* name, const char* file, int line)
 {
+	u32 x = readl(addr);
 	v3d_log_print("V3D_READ() : %s(0x%016llX) in %s:%d\n", name, (u64)addr, file, line);
 
-	printk("v3d-test: V3D_READ() : %s(0x%016llX) in %s:%d", name, (u64)addr, file, line);
-	return readl(addr);
+	printk("v3d-test: V3D_READ()=0x%08X : %s(0x%016llX) in %s:%d", x, name, (u64)addr, file, line);
+
+	return x;
 }
 
 static inline void v3d_writel_wrapper(u32 val, void* addr, const char* name, const char* file, int line)
